@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d6d60afe9f026a42b7849760d7c87e1, type: 3}
+  m_Name: StarterDungeon
+  m_EditorClassIdentifier: Assembly-CSharp::DungeonLootTable
+  DungeonName: 
+  DungeonTier: 1
+  RarityWeights:
+  - Rarity: 0
+    SpawnWeight: 75
+  - Rarity: 1
+    SpawnWeight: 20
+  - Rarity: 2
+    SpawnWeight: 4.9
+  - Rarity: 3
+    SpawnWeight: 0.1
+  PossibleItems:
+  - {fileID: 11400000, guid: 9c9b26438e4ed3b419a754ad8a39aa5d, type: 2}
+  - {fileID: 11400000, guid: 78fac785ee7912544a3758658604ab85, type: 2}
+  - {fileID: 11400000, guid: f46b61c2d2854cd4db0c085ac2499860, type: 2}
+  - {fileID: 11400000, guid: 00e2916c35e00ed4db0eaa679d52c4a4, type: 2}
+  - {fileID: 11400000, guid: 31a89f43453ba0949bdfbc624d6aec30, type: 2}
+  - {fileID: 11400000, guid: eabed10f049d8ec49b231698afe682ce, type: 2}
+  MinItemsPerRoom: 0
+  MaxItemsPerRoom: 3

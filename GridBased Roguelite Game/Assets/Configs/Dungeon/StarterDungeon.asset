@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29f66e4b888f5914dbb44d06b0ed93ae, type: 3}
+  m_Name: StarterDungeon
+  m_EditorClassIdentifier: Assembly-CSharp::DungeonDefinition
+  DungeonName: StarterDungeon
+  FloorCount: 5
+  GenerationSettings:
+    NumberOfRooms: 5
+    MinRoomSize: 3
+    MaxRoomSize: 8
+    RoomPadding: 2
+    ExtraConnectionChance: 0.6
+    MaxConnectionsPerRoom: 4
+  LootTable: {fileID: 11400000, guid: 81007fb9e421a4d4fa893ce26ef872c5, type: 2}
+  BossPrefab: {fileID: 0}
+  EnemyPrefabs:
+  - {fileID: 8687642252155328431, guid: 4e5ce8990dd9e82499ea6fb0babf6660, type: 3}
+  EnemiesPerFloor: 10
+  FloorRanges:
+  - StartFloorNumber: 0
+    EndFloorNumber: 0
+    MinLevel: 1
+    MaxLevel: 5
+  DungeonVisuals:
+    FloorTilemap: {fileID: 0}
+    WallTilemap: {fileID: 0}
+    EffectTilemap: {fileID: 0}
+    FloorTile: {fileID: 0}
+    WallTile: {fileID: 0}
+    EffectTile: {fileID: 0}
+    StairsTile: {fileID: 0}

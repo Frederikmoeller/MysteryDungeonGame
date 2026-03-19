@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fccce67de3634c4abe377adfcf8ff62, type: 3}
+  m_Name: Player
+  m_EditorClassIdentifier: Assembly-CSharp::UnitStats
+  BaseMaxHealth: 0
+  BaseMaxMana: 0
+  BaseAttack: 0
+  BaseDefense: 0
+  BaseVitality: 0
+  BaseIntelligence: 0
+  BaseLuck: 0
+  HealthScaling: 15
+  ManaScaling: 8
+  AttackScaling: 2
+  DefenseScaling: 1
+  WalkSpeed: 5
+  SprintSpeed: 10
+  UnitName: 
+  Type: 1
+  BaseExpReward: 0
+  ExpRewardScaling: 0.1
