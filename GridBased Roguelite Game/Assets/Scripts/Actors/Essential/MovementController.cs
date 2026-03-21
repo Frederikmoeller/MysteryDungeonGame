@@ -94,7 +94,7 @@ public class MovementController : MonoBehaviour
         }
         else
         {
-            _timePerGridMove = sprinting ? 0.01f : 0.2f;
+            Time.timeScale = sprinting ? 10f : 1f;
         }
     }
 
@@ -102,7 +102,7 @@ public class MovementController : MonoBehaviour
     {
         if (direction == Vector2.zero) return;
 
-        Vector3 movement = direction.normalized * _currentFreeSpeed * Time.deltaTime;
+        Vector3 movement = direction.normalized * (_currentFreeSpeed * Time.deltaTime);
         transform.position += movement;
     }
 

@@ -356,11 +356,11 @@ public class GridGenerator
                 bool existingIsHorizontal = IsHorizontalInGrid(existingTile);
                 
                 // If both are horizontal and on the same y-level, or both vertical and on the same x-level
-                if (currentIsHorizontal && existingIsHorizontal && tile.y == existingTile.y)
+                if (currentIsHorizontal && existingIsHorizontal && tile.x == existingTile.x)
                 {
                     return true; // Parallel horizontal corridors adjacent
                 }
-                if (!currentIsHorizontal && !existingIsHorizontal && tile.x == existingTile.x)
+                if (!currentIsHorizontal && !existingIsHorizontal && tile.y == existingTile.y)
                 {
                     return true; // Parallel vertical corridors adjacent
                 }

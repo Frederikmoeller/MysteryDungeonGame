@@ -19,7 +19,7 @@ GameObject:
   - component: {fileID: 7927087067266422958}
   m_Layer: 0
   m_Name: EnemyPrefab
-  m_TagString: Player
+  m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -86,7 +86,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 1
   m_MaskInteraction: 0
   m_Sprite: {fileID: -2413806693520163455, guid: a86470a33a6bf42c4b3595704624658b, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -117,6 +117,7 @@ MonoBehaviour:
   _unit: {fileID: 7927087067266422958}
   _movement: {fileID: 9168337143530253346}
   _combat: {fileID: 63912637166142442}
+  _currentState: 1
 --- !u!114 &1831036028818750017
 MonoBehaviour:
   m_ObjectHideFlags: 0

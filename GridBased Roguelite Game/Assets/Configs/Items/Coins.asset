@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   ItemName: Coins
   Stackable: 1
+  IsCurrency: 1
   Description: 
   ItemRarity: 0
   Icon: {fileID: 0}
@@ -22,4 +23,4 @@ MonoBehaviour:
   MinStack: 1
   MaxStack: 999
   MinSpawnStack: 1
-  MaxSpawnStack: 1
+  MaxSpawnStack: 999

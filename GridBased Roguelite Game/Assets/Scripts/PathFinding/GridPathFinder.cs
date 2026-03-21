@@ -3,17 +3,17 @@ using UnityEngine;
 
 public static class GridPathFinder
 {
-    // <summary>
-    // Finds a path from start to target using BFS, considering walkable tiles.
-    // Target tile itself is considered unwalkable (so path ends adjacent).
-    // Returns a list of positions from start (excluding start) to the closest tile adjacent to target.
-    // Returns null if no path exists.
-    // </summary>
+    /// <summary>
+    /// Finds a path from start to target using BFS, considering walkable tiles.
+    /// Target tile itself is considered unwalkable (so path ends adjacent).
+    /// Returns a list of positions from start (excluding start) to the closest tile adjacent to target.
+    /// Returns null if no path exists.
+    /// </summary>
 
     public static List<Vector2Int> FindPath(GridManager grid, Vector2Int start, Vector2Int target,
         int maxIterations = 500)
     {
-        if (grid == null) return null;
+        if (!grid) return null;
         if (!grid.Data.IsInBounds(start.x, start.y) || !grid.Data.IsInBounds(target.x, target.y)) return null;
         
         // BFS setup
@@ -25,10 +25,10 @@ public static class GridPathFinder
         visited.Add(start);
         cameFrom[start] = start;
 
-        Vector2Int[] directions = new Vector2Int[]
+        Vector2Int[] directions =
         {
-            Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right, new Vector2Int(1, 1),
-            new Vector2Int(1, -1), new Vector2Int(-1, 1), new Vector2Int(-1, -1)
+            Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right, new(1, 1),
+            new(1, -1), new(-1, 1), new(-1, -1)
         };
 
         int iterations = 0;

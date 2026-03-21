@@ -55,6 +55,7 @@ public class CombatController : MonoBehaviour
             targetHealth.TakeDamage(damage, gameObject);
             _lastAttackTime = Time.time;
         }
+        TurnManager.Instance.EndTurn();
     }
     
     private int CalculateBaseDamage()
