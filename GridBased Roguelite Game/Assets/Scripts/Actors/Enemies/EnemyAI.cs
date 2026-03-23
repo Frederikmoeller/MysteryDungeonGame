@@ -1,10 +1,10 @@
-using System.Collections;
+// EnemyAI.cs - Fixed to prevent stack overflow
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public enum EnemyState
 {
-    Sleep,
     Roaming,
     Chasing,
     Attacking
@@ -18,11 +18,10 @@ public class EnemyAI : MonoBehaviour
 
     [Header("References")] 
     [SerializeField] private Unit _unit;
-    [SerializeField] private MovementController _movement;
-    [SerializeField] private CombatController _combat;
     
     [Header("State")]
     [SerializeField] private EnemyState _currentState = EnemyState.Roaming;
+    
     private Transform _playerTransform;
     private Unit _playerUnit;
     private GridManager _currentGrid;
@@ -30,14 +29,16 @@ public class EnemyAI : MonoBehaviour
     private int _currentPathIndex;
     private Vector2Int? _roamingTarget;
     private int _roamPauseTurnsRemaining;
-    private Item _carriedItem;
-    private bool _isTakingTurn;
-    
+    private bool _isMoving;
+    private System.Action _onMoveComplete;
+    private int _pathfindingRetryCount; // Prevent infinite retry loops
+
+    public bool IsMoving => _isMoving;
+    public Unit Unit => _unit;
+
     void Awake()
     {
         if (_unit == null) _unit = GetComponent<Unit>();
-        if (_movement == null) _movement = GetComponent<MovementController>();
-        if (_combat == null) _combat = GetComponent<CombatController>();
         
         GameObject playerGO = GameObject.FindWithTag("Player");
         if (playerGO != null)
@@ -45,105 +46,217 @@ public class EnemyAI : MonoBehaviour
             _playerTransform = playerGO.transform;
             _playerUnit = playerGO.GetComponent<Unit>();
         }
+        
+        if (_unit.Movement != null)
+        {
+            _unit.Movement.OnGridMoveCompleted += OnMoveCompleted;
+        }
     }
 
     private void OnEnable()
     {
-        _movement.OnGridMoveCompleted += OnMoveCompleted;
+        TurnManager.Instance?.RegisterEnemy(this);
         
-        if (_unit != null && _unit.Health != null)
+        if (_unit?.Health != null)
             _unit.Health.OnDeath += OnDeath;
-            
-        TurnManager.Instance.RegisterEnemy(this);
     }
 
     private void OnDisable()
     {
-        _movement.OnGridMoveCompleted -= OnMoveCompleted;
+        TurnManager.Instance?.UnregisterEnemy(this);
         
-        if (_unit != null && _unit.Health != null)
+        if (_unit?.Health != null)
             _unit.Health.OnDeath -= OnDeath;
-            
-        TurnManager.Instance.UnregisterEnemy(this);
+    }
+
+    void OnDestroy()
+    {
+        if (_unit?.Movement != null)
+        {
+            _unit.Movement.OnGridMoveCompleted -= OnMoveCompleted;
+        }
     }
 
     public void Initialize(GridManager grid)
     {
         _currentGrid = grid;
+        Debug.Log($"{name} initialized with grid");
     }
 
-    public void TakeTurn()
+    public void MoveOnTurn(System.Action onComplete)
     {
-        if (_isTakingTurn) return;
-        if (_unit == null || !_unit.IsAlive()) 
+        _onMoveComplete = onComplete;
+        _pathfindingRetryCount = 0; // Reset retry counter for this turn
+        
+        if (!_unit.IsAlive())
         {
-            EndTurn();
+            _onMoveComplete?.Invoke();
             return;
         }
         
-        _isTakingTurn = true;
+        // Get distance to player
+        float distToPlayer = Vector2Int.Distance(_unit.Movement.CurrentGridPosition, GetPlayerGridPosition());
         
-        float distToPlayer = Vector2Int.Distance(_movement.CurrentGridPosition, GetPlayerGridPosition());
-        
-        if (distToPlayer <= attackRange && _combat.CanAttack())
+        // Decide what to do
+        if (distToPlayer <= attackRange)
         {
-            // Attack
-            _combat.Attack(_playerUnit.gameObject);
-            EndTurn();
+            // Attack instead of move
+            AttackPlayer();
         }
         else if (distToPlayer <= detectionRange)
         {
-            HandleChasing();
+            ChasePlayer();
         }
         else
         {
-            HandleRoaming();
+            Roam();
         }
     }
     
-    private void EndTurn()
+    private void AttackPlayer()
     {
-        _isTakingTurn = false;
-        TurnManager.Instance.EndTurn();
+        _currentState = EnemyState.Attacking;
+        _unit.Attack(_playerUnit.gameObject);
+        
+        // Attack is instant, complete immediately
+        _onMoveComplete?.Invoke();
     }
     
-    private void HandleRoaming()
+    private void ChasePlayer()
     {
+        _currentState = EnemyState.Chasing;
+        
+        Vector2Int playerPos = GetPlayerGridPosition();
+        Vector2Int currentPos = _unit.Movement.CurrentGridPosition;
+        
+        // Use GridPathFinder to get path (now paths through enemies)
+        _currentPath = GridPathFinder.FindPath(_currentGrid, currentPos, playerPos);
+        _currentPathIndex = 0;
+        
+        if (_currentPath == null || _currentPath.Count == 0)
+        {
+            // No path found, just end turn
+            Debug.Log($"{name} no path to player");
+            _onMoveComplete?.Invoke();
+            return;
+        }
+        
+        // Try to move along the path
+        TryMoveAlongPath();
+    }
+    
+    private void Roam()
+    {
+        _currentState = EnemyState.Roaming;
+        
         // Handle pause between roams
         if (_roamPauseTurnsRemaining > 0)
         {
             _roamPauseTurnsRemaining--;
-            EndTurn();
+            _onMoveComplete?.Invoke();
             return;
         }
         
-        // Need a new path?
+        // Need a new roam target?
         if (_currentPath == null || _currentPathIndex >= _currentPath.Count)
         {
             PickNewRoamTarget();
+            
             if (_currentPath == null || _currentPath.Count == 0)
             {
-                EndTurn();
+                _onMoveComplete?.Invoke();
+                return;
             }
+        }
+        
+        // Try to move along the path
+        TryMoveAlongPath();
+    }
+    
+    private void TryMoveAlongPath()
+    {
+        // Prevent infinite recursion
+        _pathfindingRetryCount++;
+        if (_pathfindingRetryCount > 5)
+        {
+            Debug.LogWarning($"{name} too many pathfinding retries, giving up this turn");
+            _onMoveComplete?.Invoke();
             return;
         }
         
-        // Try to move
-        if (_currentPathIndex < _currentPath.Count)
+        if (_currentPath == null || _currentPathIndex >= _currentPath.Count)
         {
-            Vector2Int nextStep = _currentPath[_currentPathIndex];
-            Vector2Int direction = nextStep - _movement.CurrentGridPosition;
-            
-            if (_currentGrid.IsWalkable(nextStep.x, nextStep.y))
+            _onMoveComplete?.Invoke();
+            return;
+        }
+        
+        Vector2Int nextStep = _currentPath[_currentPathIndex];
+        Vector2Int currentPos = _unit.Movement.CurrentGridPosition;
+        Vector2Int direction = nextStep - currentPos;
+        
+        // Check if the destination tile is actually available to move into
+        if (GridPathFinder.IsValidDestination(_currentGrid, nextStep.x, nextStep.y, gameObject))
+        {
+            _isMoving = true;
+            _unit.Move(new Vector2(direction.x, direction.y));
+            // Will complete in OnMoveCompleted
+        }
+        else
+        {
+            // Destination is blocked (likely by another enemy), try to find alternate path
+            if (_currentState == EnemyState.Chasing)
             {
-                _unit.Move(direction);
-                // Wait for OnMoveCompleted
+                Vector2Int playerPos = GetPlayerGridPosition();
+                Vector2Int currentPosition = _unit.Movement.CurrentGridPosition;
+                
+                // Check if we're already adjacent to player but tile is occupied
+                if (Vector2Int.Distance(currentPosition, playerPos) <= 1.1f)
+                {
+                    // We're adjacent but can't move onto player's tile - just end turn
+                    Debug.Log($"{name} adjacent to player but tile occupied");
+                    _onMoveComplete?.Invoke();
+                    return;
+                }
+                
+                // Try to find alternate path, excluding the blocked tile
+                var alternatePath = GridPathFinder.FindPath(_currentGrid, currentPosition, playerPos);
+                if (alternatePath != null && alternatePath.Count > 0)
+                {
+                    _currentPath = alternatePath;
+                    _currentPathIndex = 0;
+                    // Try again with new path
+                    TryMoveAlongPath();
+                }
+                else
+                {
+                    Debug.Log($"{name} no alternate path found");
+                    _onMoveComplete?.Invoke();
+                }
+            }
+            else if (_currentState == EnemyState.Roaming && _roamingTarget.HasValue)
+            {
+                // For roaming, try to find alternate path
+                Vector2Int currentPosition = _unit.Movement.CurrentGridPosition;
+                var alternatePath = GridPathFinder.FindPath(_currentGrid, currentPosition, _roamingTarget.Value);
+                if (alternatePath != null && alternatePath.Count > 0)
+                {
+                    _currentPath = alternatePath;
+                    _currentPathIndex = 0;
+                    TryMoveAlongPath();
+                }
+                else
+                {
+                    // No alternate path, just pause and try again next turn
+                    _currentPath = null;
+                    _roamPauseTurnsRemaining = Random.Range(1, 3);
+                    _onMoveComplete?.Invoke();
+                }
             }
             else
             {
-                // Blocked, try again next turn
+                // For roaming, just give up this turn
                 _currentPath = null;
-                EndTurn();
+                _onMoveComplete?.Invoke();
             }
         }
     }
@@ -154,90 +267,34 @@ public class EnemyAI : MonoBehaviour
         
         if (_roamingTarget.HasValue)
         {
-            _currentPath = GridPathFinder.FindPath(_currentGrid, _movement.CurrentGridPosition, _roamingTarget.Value);
+            Vector2Int currentPos = _unit.Movement.CurrentGridPosition;
+            _currentPath = GridPathFinder.FindPath(_currentGrid, currentPos, _roamingTarget.Value);
             _currentPathIndex = 0;
             
             if (_currentPath == null || _currentPath.Count == 0)
             {
                 _currentPath = null;
+                _roamPauseTurnsRemaining = Random.Range(1, 3);
             }
         }
-    }
-    
-    private void HandleChasing()
-    {
-        Vector2Int playerPos = GetPlayerGridPosition();
-        Vector2Int currentPos = _movement.CurrentGridPosition;
-    
-        if (Vector2Int.Distance(currentPos, playerPos) <= attackRange)
+        else
         {
-            SetState(EnemyState.Attacking);
-            EndTurn();
-            return;
-        }
-    
-        // Need a new path?
-        if (_currentPath == null || _currentPathIndex >= _currentPath.Count)
-        {
-            _currentPath = GridPathFinder.FindPath(_currentGrid, currentPos, playerPos);
-            _currentPathIndex = 0;
-            
-            if (_currentPath == null || _currentPath.Count == 0)
-            {
-                EndTurn();
-                return;
-            }
-        }
-    
-        // Try to move
-        if (_currentPathIndex < _currentPath.Count)
-        {
-            Vector2Int nextStep = _currentPath[_currentPathIndex];
-            Vector2Int direction = nextStep - currentPos;
-            
-            if (_currentGrid.IsWalkable(nextStep.x, nextStep.y))
-            {
-                _unit.Move(direction);
-                // Wait for OnMoveCompleted
-            }
-            else
-            {
-                // Blocked, try again next turn
-                _currentPath = null;
-                EndTurn();
-            }
+            _roamPauseTurnsRemaining = Random.Range(1, 3);
         }
     }
     
     private void OnMoveCompleted(Vector2Int newPosition)
     {
+        _isMoving = false;
+        
         // Increment path index
         if (_currentPath != null && _currentPathIndex < _currentPath.Count)
         {
             _currentPathIndex++;
         }
         
-        // Check for item pickup after moving
-        TryPickupItem();
-        
-        // End turn after moving
-        EndTurn();
-    }
-    
-    private void SetState(EnemyState newState)
-    {
-        if (_currentState == newState) return;
-        _currentState = newState;
-        
-        if (newState == EnemyState.Roaming)
-        {
-            _roamingTarget = null;
-        }
-        else if (newState == EnemyState.Attacking)
-        {
-            _currentPath = null;
-            _currentPathIndex = 0;
-        }
+        // Notify that movement is complete
+        _onMoveComplete?.Invoke();
     }
     
     private Vector2Int GetPlayerGridPosition()
@@ -259,7 +316,9 @@ public class EnemyAI : MonoBehaviour
         {
             foreach (Vector2Int tile in room.FloorTiles)
             {
-                if (_currentGrid.IsWalkable(tile.x, tile.y))
+                // For roaming, we only care about tile type, not occupation
+                Tile tileData = _currentGrid.GetTile(tile.x, tile.y);
+                if (tileData != null && (tileData.Type == TileType.Floor || tileData.Type == TileType.Effect))
                 {
                     allWalkableTiles.Add(tile);
                 }
@@ -269,16 +328,8 @@ public class EnemyAI : MonoBehaviour
         if (allWalkableTiles.Count == 0)
             return null;
     
-        Vector2Int currentPos = _movement.CurrentGridPosition;
-        List<Vector2Int> validTiles = new List<Vector2Int>();
-    
-        foreach (Vector2Int tile in allWalkableTiles)
-        {
-            if (tile != currentPos)
-            {
-                validTiles.Add(tile);
-            }
-        }
+        Vector2Int currentPos = _unit.Movement.CurrentGridPosition;
+        List<Vector2Int> validTiles = allWalkableTiles.Where(t => t != currentPos).ToList();
     
         if (validTiles.Count == 0)
             return null;
@@ -286,51 +337,14 @@ public class EnemyAI : MonoBehaviour
         return validTiles[Random.Range(0, validTiles.Count)];
     }
     
-    private void TryPickupItem()
-    {
-        if (_currentGrid == null || _carriedItem != null) return;
-        
-        Vector2Int pos = _movement.CurrentGridPosition;
-        Tile tile = _currentGrid.GetTile(pos.x, pos.y);
-        if (tile != null && tile.HasItem)
-        {
-            _carriedItem = tile.Item;
-            tile.Item = null;
-            _carriedItem.transform.SetParent(transform);
-            _carriedItem.gameObject.SetActive(false);
-        }
-    }
-    
-    private void DropItem()
-    {
-        if (_carriedItem != null && _currentGrid != null)
-        {
-            Vector2Int pos = _movement.CurrentGridPosition;
-            Tile tile = _currentGrid.GetTile(pos.x, pos.y);
-            if (tile != null && tile.Item == null)
-            {
-                _carriedItem.transform.SetParent(null);
-                _carriedItem.transform.position = new Vector3(pos.x, pos.y, 0);
-                _carriedItem.gameObject.SetActive(true);
-                tile.Item = _carriedItem;
-                _carriedItem = null;
-            }
-        }
-    }
-    
     private void OnDeath(GameObject killer)
     {
-        DropItem();
         enabled = false;
-    }
-    
-    public void SetCarriedItem(Item item)
-    {
-        _carriedItem = item;
-        if (item != null)
+        
+        // If this enemy was moving, complete the callback
+        if (_isMoving && _onMoveComplete != null)
         {
-            item.transform.SetParent(transform);
-            item.gameObject.SetActive(false);
+            _onMoveComplete?.Invoke();
         }
     }
 }
