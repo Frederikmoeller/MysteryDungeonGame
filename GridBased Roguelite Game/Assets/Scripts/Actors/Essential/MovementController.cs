@@ -32,6 +32,7 @@ public class MovementController : MonoBehaviour
         Mathf.RoundToInt(transform.position.x),
         Mathf.RoundToInt(transform.position.y)
     );
+    public Vector2Int TargetGridPosition;
 
     void Awake()
     {
@@ -111,10 +112,15 @@ public class MovementController : MonoBehaviour
         if (_isMovingOnGrid) return;
 
         Vector2Int gridDirection = GetGridDirection(direction);
-        if (gridDirection == Vector2Int.zero) return;
+        if (gridDirection == Vector2Int.zero)
+        {
+            TargetGridPosition = CurrentGridPosition;
+            return;
+        }
 
         Vector2Int currentPosition = CurrentGridPosition;
         Vector2Int targetPosition = currentPosition + gridDirection;
+        TargetGridPosition = targetPosition;
 
         if (_currentGrid.IsWalkable(targetPosition.x, targetPosition.y))
         {

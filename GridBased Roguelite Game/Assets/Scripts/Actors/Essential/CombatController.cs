@@ -1,4 +1,8 @@
+// CombatController.cs
+using System;
+using System.Collections;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class CombatController : MonoBehaviour
 {
@@ -9,6 +13,9 @@ public class CombatController : MonoBehaviour
     [Header("Damage Settings")]
     [SerializeField] private float _minDamageMultiplier = 0.9f;
     [SerializeField] private float _maxDamageMultiplier = 1.1f;
+    
+    [Header("Animation")]
+    [SerializeField] private float _attackAnimationDelay = 0.2f; // small visual delay
     
     private float _lastAttackTime;
     private HealthSystem _healthSystem;
@@ -23,12 +30,8 @@ public class CombatController : MonoBehaviour
     private void Start()
     {
         Initialize();
-        
-        // Subscribe to death event
         if (_healthSystem != null)
-        {
             _healthSystem.OnDeath += HandleDeath;
-        }
     }
     
     public void Initialize(UnitStats stats = null)
@@ -36,33 +39,40 @@ public class CombatController : MonoBehaviour
         if (stats != null)
             _baseStats = stats;
     }
-    
-    public bool CanAttack()
+
+    public void Attack(GameObject target, Action OnComplete)
     {
-        return Time.time >= _lastAttackTime + _attackCooldown;
+        // Start the attack coroutine
+        StartCoroutine(ExecuteAttack(target, OnComplete));
     }
     
-    public void Attack(GameObject target)
+    private IEnumerator ExecuteAttack(GameObject target, Action onComplete)
     {
-        if (!CanAttack()) return;
-    
-        var targetHealth = target.GetComponent<HealthSystem>();
-    
-        if (targetHealth != null)
+        // Wait for the visual delay (attack wind‑up)
+        yield return new WaitForSeconds(_attackAnimationDelay);
+
+        if (target != null)
         {
-            int damage = CalculateBaseDamage();
-            damage = ApplyDamageVariance(damage);
-            targetHealth.TakeDamage(damage, gameObject);
-            _lastAttackTime = Time.time;
+            // Apply damage
+            var targetHealth = target.GetComponent<HealthSystem>();
+            if (targetHealth != null)
+            {
+                int damage = CalculateBaseDamage();
+                damage = ApplyDamageVariance(damage);
+                targetHealth.TakeDamage(damage, gameObject);
+                print($"{target} took {damage}");
+            }
         }
-        TurnManager.Instance.EndPlayerTurn();
+    
+        yield return new WaitForSeconds(0.5f);
+    
+        onComplete?.Invoke();
     }
     
     private int CalculateBaseDamage()
     {
         if (_expSystem == null)
             return _baseStats?.BaseAttack ?? 10;
-    
         return _expSystem.Attack;
     }
     
@@ -83,16 +93,22 @@ public class CombatController : MonoBehaviour
                 killerExp.GainExp(expReward);
             }
         }
-    
-        Destroy(gameObject, 0.5f);
+
+        GetComponent<Unit>().Movement.CurrentGrid.SetOccupant(GetComponent<Unit>().Movement.CurrentGridPosition.x, GetComponent<Unit>().Movement.CurrentGridPosition.y, null);
+        if (GetComponent<EnemyAI>() != null)
+        {
+            Destroy(gameObject, 0.5f);
+        }
+        else
+        {
+            GetComponent<SpriteRenderer>().enabled = false;
+            //TODO: End the dungeon with defeat screen and send player back to town
+        }
     }
     
     private void OnDestroy()
     {
-        // Unsubscribe from events
         if (_healthSystem != null)
-        {
             _healthSystem.OnDeath -= HandleDeath;
-        }
     }
 }

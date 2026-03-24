@@ -1,4 +1,5 @@
 using System;
+using JetBrains.Annotations;
 using UnityEngine;
 
 public enum UnitType
@@ -99,12 +100,11 @@ public class Unit : MonoBehaviour
     }
 
     /// <summary>
-    /// Attack a target game object (must have Unit component)
+    /// Attack a target game object
     /// </summary>
-    public void Attack(GameObject target)
+    public void Attack(GameObject target = null, Action OnComplete = null)
     {
-        if (target == null) return;
-        _combatController?.Attack(target);
+        _combatController?.Attack(target, OnComplete);
     }
 
     /// <summary>
